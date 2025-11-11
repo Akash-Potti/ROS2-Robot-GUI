@@ -89,5 +89,3 @@ python3 -m robot_gui.main
 2. From workspace root, install Python deps: `pip install -r requirements.txt`.
 3. Build the ROS workspace: `colcon build`.
 4. Source the setup files and run: `ros2 run robot_gui robot_gui`.
-
-If you want, I can add a small shell script or systemd unit file to make launching easier on your target system.
