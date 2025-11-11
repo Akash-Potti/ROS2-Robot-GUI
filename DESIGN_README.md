@@ -38,8 +38,7 @@ The code is organized into clear components:
 
 4. Threading model (chosen for simplicity)
 
-- The application runs `rclpy.spin()` in a background Python thread while keeping the Qt event loop in the main thread. This keeps the GUI responsive without requiring advanced thread orchestration.
-- Note: Emitting Qt signals from a different thread is supported via queued connections, but mixing `QObject` usage across threads is brittle. For production stability it's recommended to migrate to a safer pattern (see "Thread-safety notes").
+- The application runs `rclpy.spin()` in a background Python thread while keeping the Qt event loop in the main thread. This keeps the GUI
 
 5. Simplicity and embedded suitability
 

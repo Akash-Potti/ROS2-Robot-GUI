@@ -1,22 +1,15 @@
 """Entry point for the Robot GUI application.
 
 This module creates the Qt application, starts the ROS2 interface in a
-background thread, and shows the main window. It is intentionally small;
+background thread, and shows the main window.
 the implementation delegates behavior to the :class:`robot_gui.ros_interface.ros_node.ROSInterface`
 and :class:`robot_gui.gui.main_window.MainWindow` classes.
 
 Usage
 -----
-Typically invoked via the package entry point (e.g. `ros2 run robot_gui robot_gui`)
-or by calling ``main()`` from a small launcher script. The module does not parse
-command-line arguments and expects ROS2 to be available in the runtime.
+Typically invoked via the package entry point ( `ros2 run robot_gui robot_gui`)
+or by calling ``main()`` from a small launcher script. 
 
-Notes
------
-- ROS spinning is run in a plain Python ``threading.Thread`` so that the
-    Qt event loop remains responsive. See :mod:`robot_gui.ros_interface.ros_node`
-    for details about thread-safety and signal emission.
-- Keep this file minimal to make testing and packaging easier.
 """
 
 import sys

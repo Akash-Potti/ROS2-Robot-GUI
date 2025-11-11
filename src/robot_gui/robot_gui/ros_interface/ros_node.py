@@ -13,17 +13,6 @@ Important public signals
   as samples arrive.
 - ``log_data`` (dict): a dict suitable for CSV logging; contains ``battery``,
   ``velocity``, and ``sensor`` keys.
-
-Notes on threading
-------------------
-The code currently runs ``rclpy.spin`` in a background Python thread (see
-``main.py``). The timers created by this node will run in that thread and
-emit Qt signals. Emitting Qt signals from another thread is supported via
-queued connections, but care must be taken if you later modify the class
-to access QObject internals from the ROS thread. See the project README or
-the MainWindow design notes for recommended safer alternatives (move the
-ROS logic into a QThread-owned object or route updates through a thread-
-safe queue polled by the GUI thread).
 """
 
 import rclpy
@@ -63,21 +52,22 @@ class ROSInterface(Node, QObject):
         QObject.__init__(self)
 
         self.command_pub = self.create_publisher(String, 'control_command', 10)
-        self.sim_timer = None
-        self.sensor_timer = None
-        self.battery = 100.0
-        self.velocity = 0.0
-        self.sensor_value = 0.0
-        # single update period (seconds) used for all periodic updates
-        # change this value to alter frequency of both status and sensor updates
+        self.sim_timer = None# current simulation timer
+        self.sensor_timer = None# current sensor timer
+        self.battery = 100.0# current battery variable
+        self.velocity = 0.0 # current velocity variable
+        self.sensor_value = 0.0 #flow sensor variable
         self.update_period = 0.2  # 5 Hz sampling rate
 
         self.get_logger().info("ROSInterface initialized")
 
     def publish_start(self):
+        """
+        Publish start command and start timers for status and sensor simulation.
+        """
         msg = String()
         msg.data = "start"
-        self.command_pub.publish(msg)
+        self.command_pub.publish(msg) # publish start command
         self.get_logger().info("Published START command")
         # create both timers with the same update period so GUI and logger
         # receive synchronized updates
@@ -87,9 +77,12 @@ class ROSInterface(Node, QObject):
             self.sensor_timer = self.create_timer(self.update_period, self.simulate_sensor_data)
 
     def publish_stop(self):
+        """
+        Publish stop command and stop simulation timers.
+        """
         msg = String()
         msg.data = "stop"
-        self.command_pub.publish(msg)
+        self.command_pub.publish(msg) # publish stop command
         self.get_logger().info("Published STOP command")
 
         # Stop timers
@@ -100,9 +93,23 @@ class ROSInterface(Node, QObject):
             self.sensor_timer.cancel()
             self.sensor_timer = None
 
+    def reset(self):
+        """Reset the simulated robot state to initial defaults.
+
+        This method does not start or stop timers; it only restores internal
+        telemetry values so that a subsequent ``publish_start`` begins from
+        a clean state.
+        """
+        self.battery = 100.0
+        self.velocity = 0.0
+        self.sensor_value = 0.0
+
     def simulate_status(self):
-        self.velocity = round(random.uniform(0.0, 1.0), 2)
-        self.battery = max(0.0, self.battery - random.uniform(0.0001, 0.005))
+        """
+        Simulate robot status by updating velocity and battery level.
+        """
+        self.velocity = round(random.uniform(0.0, 1.0), 2) # simulate velocity
+        self.battery = max(0.0, self.battery - random.uniform(0.0001, 0.005)) # simulate battery drain
 
         status = {
             "battery": round(self.battery, 1),
@@ -132,7 +139,7 @@ class ROSInterface(Node, QObject):
         log_data = {
             "battery": round(self.battery, 1),
             "velocity": self.velocity,
-            "sensor": self.sensor_value,   # now "flow sensor" value
+            "sensor": self.sensor_value,   #  "flow sensor" value
         }
 
         # Emit to GUI and logger
@@ -143,6 +150,9 @@ class ROSInterface(Node, QObject):
             self.get_logger().warn(f"Flow signal emit error: {e}")
 
     def spin(self):
+        """
+        Run the ROS2 node event loop.
+        """
         try:
             rclpy.spin(self)
         except KeyboardInterrupt:

@@ -14,10 +14,6 @@ API and behavior
 - The widget uses small fixed-size deques (``maxlen=100``) to bound memory
     usage and keep rendering efficient for typical embedded systems.
 
-Performance notes
-- Point symbols are enabled in the current UI which look nice for sparse
-    data but can be disabled for higher sample rates to improve rendering
-    performance. See :meth:`_set_plot_interactivity` for interaction controls.
 """
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame, QPushButton
 from PySide6.QtGui import QFont
@@ -25,6 +21,7 @@ from PySide6.QtCore import Signal
 import pyqtgraph as pg
 from collections import deque
 from typing import cast
+import time
 
 
 class PlotPanel(QWidget):
@@ -34,9 +31,14 @@ class PlotPanel(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.flow_buffer = deque(maxlen=100)
-        self.velocity_buffer = deque(maxlen=100)
+
+        self.flow_buffer = []
+        self.flow_time = []
+        self.velocity_buffer = []
+        self.velocity_time = []
         self._interaction_enabled = False
+
+        self._start_time = None
         self._init_ui()
         self._set_plot_interactivity(False)
         
@@ -87,7 +89,7 @@ class PlotPanel(QWidget):
             'left', 'Flow (L/min)', color='#B0B0B0', **{'font-size': '10pt'}
         )
         self.flow_plot.setLabel(
-            'bottom', 'Time (samples)', color='#B0B0B0', **{'font-size': '10pt'}
+            'bottom', 'Time (s)', color='#B0B0B0', **{'font-size': '10pt'}
         )
         self.flow_plot.showGrid(x=True, y=True, alpha=0.2)
 
@@ -158,7 +160,7 @@ class PlotPanel(QWidget):
             'left', 'Velocity (m/s)', color='#B0B0B0', **{'font-size': '10pt'}
         )
         self.velocity_plot.setLabel(
-            'bottom', 'Time (samples)', color='#B0B0B0', **{'font-size': '10pt'}
+            'bottom', 'Time (s)', color='#B0B0B0', **{'font-size': '10pt'}
         )
         self.velocity_plot.showGrid(x=True, y=True, alpha=0.2)
 
@@ -222,16 +224,36 @@ class PlotPanel(QWidget):
         
     def update_plot(self, value):
         """Update the plot with new sensor data"""
+        # record timestamped sample (elapsed seconds)
+        now = time.time()
+        if self._start_time is None:
+            self._start_time = now
+        elapsed = now - self._start_time
+        self.flow_time.append(elapsed)
         self.flow_buffer.append(value)
-        data_list = list(self.flow_buffer)
-        self.flow_curve.setData(data_list)
+
+        x = list(self.flow_time)
+        y = list(self.flow_buffer)
+        # plot x (seconds) vs y (flow)
+        self.flow_curve.setData(x=x, y=y)
+
+        # Keep a sliding window of the most recent 10s visible on the x-axis
+        # while preserving full history. If interaction is enabled, do not
+        # override the view so the user can pan/zoom through history.
+        if not self._interaction_enabled:
+            right = elapsed
+            left = max(0.0, right - 10.0)
+            try:
+                self.flow_plot.getViewBox().setXRange(left, right, padding=0)
+            except Exception:
+                pass
         
         # Update statistics
-        if data_list:
-            current = data_list[-1]
-            min_val = min(data_list)
-            max_val = max(data_list)
-            avg_val = sum(data_list) / len(data_list)
+        if y:
+            current = y[-1]
+            min_val = min(y)
+            max_val = max(y)
+            avg_val = sum(y) / len(y)
             
             self.flow_stats_label.setText(
                 f"Current: {current:.2f} L/min | "
@@ -242,15 +264,22 @@ class PlotPanel(QWidget):
     
     def update_velocity(self, value):
         """Update the velocity plot with new status data."""
+        now = time.time()
+        if self._start_time is None:
+            self._start_time = now
+        elapsed = now - self._start_time
+        self.velocity_time.append(elapsed)
         self.velocity_buffer.append(value)
-        data_list = list(self.velocity_buffer)
-        self.velocity_curve.setData(data_list)
 
-        if data_list:
-            current = data_list[-1]
-            min_val = min(data_list)
-            max_val = max(data_list)
-            avg_val = sum(data_list) / len(data_list)
+        x = list(self.velocity_time)
+        y = list(self.velocity_buffer)
+        self.velocity_curve.setData(x=x, y=y)
+
+        if y:
+            current = y[-1]
+            min_val = min(y)
+            max_val = max(y)
+            avg_val = sum(y) / len(y)
 
             self.velocity_stats_label.setText(
                 f"Current: {current:.2f} m/s | "
@@ -259,12 +288,29 @@ class PlotPanel(QWidget):
                 f"Avg: {avg_val:.2f} m/s"
             )
 
+        # Keep velocity plot aligned to the same 10s sliding window as the
+        # flow plot when interaction is disabled.
+        if not self._interaction_enabled:
+            right = elapsed
+            left = max(0.0, right - 10.0)
+            try:
+                self.velocity_plot.getViewBox().setXRange(left, right, padding=0)
+            except Exception:
+                pass
+
     def clear_plot(self):
         """Clear all data from the plot"""
+        # Explicitly clear stored history and plotted data. This method is
+        # called on user stop/start to reset the view. Normal scrolling
+        # will not remove old samples because we keep full history lists.
         self.flow_buffer.clear()
+        self.flow_time.clear()
         self.velocity_buffer.clear()
-        self.flow_curve.setData([])
-        self.velocity_curve.setData([])
+        self.velocity_time.clear()
+        # Reset time origin so subsequent starts begin at t=0
+        self._start_time = None
+        self.flow_curve.setData([], [])
+        self.velocity_curve.setData([], [])
         self.flow_stats_label.setText(
             "Current: -- L/min | Min: -- L/min | Max: -- L/min | Avg: -- L/min"
         )

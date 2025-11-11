@@ -17,7 +17,7 @@ Design notes
     modular and testable.
 """
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
-                               QLabel, QFrame, QScrollArea, QSizePolicy,
+                               QLabel, QFrame, QScrollArea,
                                QFileDialog, QMessageBox, QDialog, QListWidget,
                                QListWidgetItem, QPushButton, QAbstractItemView)
 from PySide6.QtCore import Qt
@@ -64,13 +64,13 @@ class MainWindow(QWidget):
         content_layout.setSpacing(10)
         content_layout.setContentsMargins(10, 10, 10, 10)
         
-        # LEFT PANEL - Controls and Status (fixed width, expandable height)
+        # LEFT PANEL - Controls and Status 
         left_panel = self._create_left_panel()
         left_panel.setMinimumWidth(280)
         left_panel.setMaximumWidth(400)
         content_layout.addWidget(left_panel)
         
-        # RIGHT PANEL - Live Data Plot (expandable)
+        # RIGHT PANEL - Live Data Plot
         right_panel = self._create_right_panel()
         right_panel.setMinimumWidth(400)
         content_layout.addWidget(right_panel, stretch=1)
@@ -243,9 +243,24 @@ class MainWindow(QWidget):
         self.ros_interface.sensor_updated.connect(self.update_plot)
         self.ros_interface.log_data.connect(self.logger.write_entry)
         
-    # --- Button handlers ---
+    # Button handlers 
     def on_start_clicked(self):
         """Handle start button click"""
+        # Reset UI widgets and ROS simulated state so each run starts fresh
+        try:
+            # Clear plots and reset displayed telemetry
+            self.plot_panel.clear_plot()
+            self.status_panel.update_battery(100.0)
+            self.status_panel.update_velocity(0.0)
+            # Reset internal ROS simulated values
+            try:
+                self.ros_interface.reset()
+            except Exception:
+                # If reset isn't available, ignore and continue
+                pass
+        except Exception:
+            pass
+
         self.status_panel.update_operation_status("Running")
         self.ros_interface.publish_start()
         
@@ -253,6 +268,13 @@ class MainWindow(QWidget):
         """Handle stop button click"""
         self.status_panel.update_operation_status("Stopped")
         self.ros_interface.publish_stop()
+        # Clear plots and reset live displays on stop so subsequent starts are clean
+        try:
+            self.plot_panel.clear_plot()
+            self.status_panel.update_battery(0.0)
+            self.status_panel.update_velocity(0.0)
+        except Exception:
+            pass
         
         # Auto-stop logging when robot stops
         if self.logging_active:
@@ -273,7 +295,7 @@ class MainWindow(QWidget):
             self.control_panel.update_logging_status(False)
             self.logging_active = False
             
-    # --- Data update handlers ---
+    # Data  handlers
     def update_status_panel(self, status):
         """Update status panel with new data"""
         self.status_panel.update_battery(status['battery'])
@@ -331,7 +353,7 @@ class MainWindow(QWidget):
         if not dest_dir:
             return
 
-        # flush open file if any (best-effort)
+        # flush open file if any 
         try:
             if getattr(self.logger, 'file', None):
                 try:

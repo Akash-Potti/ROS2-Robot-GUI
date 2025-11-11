@@ -15,11 +15,6 @@ Public API
 - ``get_last_log_path()`` / ``get_log_history()``: helpers for UI download and
   management.
 
-Design notes
-- The class is a :class:`PySide6.QtCore.QObject` so its methods can be used
-  as Qt slots. The GUI connects the ROSInterface.log_data signal directly to
-  :meth:`write_entry` and controls lifecycle via :meth:`start_logging`/
-  :meth:`stop_logging`.
 """
 
 import csv

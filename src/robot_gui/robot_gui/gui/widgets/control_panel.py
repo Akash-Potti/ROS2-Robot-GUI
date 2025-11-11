@@ -22,9 +22,9 @@ Implementation details
     the current logger state in the UI.
 """
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, 
-                               QLabel, QFrame, QHBoxLayout)
+                               QLabel, QFrame)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont
 
 
 class ControlPanel(QWidget):
